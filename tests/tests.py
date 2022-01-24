@@ -2,6 +2,7 @@ import pytest
 
 import history_table.history_table as ht
 from sqlalchemy import create_engine, event
+from sqlalchemy import Column, String, Integer
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -25,6 +26,19 @@ def db_session(engine):
     transaction.rollback()
     connection.close()
 
+@pytest.fixture
+def db_versioned_session(engine):
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection)
+    ht.version_session(session)
+    
+    yield session
+    
+    session.close()
+    transaction.rollback()
+    connection.close()
+
 def test_session_versioning(db_session):
     '''Tests whether the session successfully has its listener applied
     and removed. The before_flush listener is responsible for firing
@@ -39,3 +53,31 @@ def test_session_versioning(db_session):
     ht.deversion_session(session)
 
     assert not event.contains(session, "before_flush", ht.before_flush)
+
+def test_simple_creation(db_versioned_session, engine, base):
+    '''Tests that a trivial model has the expected history table created
+    with it and that it records a change.
+    '''
+    
+    session = db_versioned_session
+    Base = base
+
+    class MyModel(Base, ht.Versioned):
+        __tablename__ = 'mytable'
+
+        id = Column(Integer, primary_key = True)
+        data = Column(String)
+    
+    Base.metadata.create_all(engine)
+
+    model = MyModel(data="original data")
+    session.add(model)
+    session.commit()
+
+    assert model.version == 1
+
+    model.data = "changed data"
+    session.commit()
+    
+    assert model.version == 2
+
