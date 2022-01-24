@@ -314,14 +314,6 @@ def before_flush(session, flush_context, instances):
         create_version(obj, session, deleted=True)
 
 def version_session(session):
-    """
-    @event.listens_for(session, "before_flush")
-    def before_flush(session, flush_context, instances):
-        for obj in versioned_objects(session.dirty):
-            create_version(obj, session)
-        for obj in versioned_objects(session.deleted):
-            create_version(obj, session, deleted=True)
-    """ 
     event.listen(session, "before_flush", before_flush)
 
 def deversion_session(session):
