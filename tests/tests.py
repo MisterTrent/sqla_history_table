@@ -1,6 +1,6 @@
 import pytest
 
-import history_table as ht
+import history_table.history_table as ht
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.declarative import declarative_base
