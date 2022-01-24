@@ -1,7 +1,9 @@
 """Versioned mixin class and other utilities.
 
-This file taken from: 
+Original version of this file taken verbatim from: 
 https://github.com/sqlalchemy/sqlalchemy/blob/main/examples/versioned_history/history_meta.py
+
+Minor modifications made by me as noted with comments
 """
 
 import datetime
@@ -305,11 +307,25 @@ def create_version(obj, session, deleted=False):
     session.add(hist)
     obj.version += 1
 
+#event handler defined on its own to create object to refer to for removal
+#func was given in sqlalchemy example code
+def before_flush(session, flush_context, instances):
+    for obj in versioned_objects(session.dirty):
+        create_version(obj, session)
+    for obj in versioned_objects(session.deleted):
+        create_version(obj, session, deleted=True)
 
-def versioned_session(session):
+def version_session(session):
+    """
     @event.listens_for(session, "before_flush")
     def before_flush(session, flush_context, instances):
         for obj in versioned_objects(session.dirty):
             create_version(obj, session)
         for obj in versioned_objects(session.deleted):
             create_version(obj, session, deleted=True)
+    """ 
+    event.listen(session, "before_flush", before_flush)
+
+def deversion_session(session):
+    event.remove(session, "before_flush", before_flush)
+    
