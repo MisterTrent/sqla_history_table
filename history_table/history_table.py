@@ -197,8 +197,6 @@ class Versioned:
     include_version_message = False
     include_version_timestamp = True
     
-    def __init__(self, version_message = None):
-
     @declared_attr
     def __mapper_cls__(cls):
         def map_(cls, *arg, **kw):
