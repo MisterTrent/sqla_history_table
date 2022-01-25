@@ -4,6 +4,7 @@ import history_table.history_table as ht
 from sqlalchemy import create_engine, event
 from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import Session, relationship
+from sqlalchemy import orm
 from sqlalchemy.ext.declarative import declarative_base
 
 @pytest.fixture(scope="session")
@@ -81,6 +82,8 @@ def test_simple_creation(db_versioned_session, engine, base):
     
     assert model.version == 2
     
+    
+    orm.clear_mappers()
     Base.metadata.drop_all(engine)
     Base.metadata.clear()
 
@@ -117,6 +120,7 @@ def test_relationship(db_versioned_session, engine, base):
     
     assert model.version == 2
     
+    orm.clear_mappers()
     Base.metadata.drop_all(engine)
     Base.metadata.clear()
 
@@ -132,7 +136,12 @@ def test_version_message(db_versioned_session, engine, base):
 
         id = Column(Integer, primary_key = True)
         data = Column(String)
-    
+
+        @orm.reconstructor
+        def set_version_message(self, msg = ''):
+            if self.include_version_message is True:
+                self.version_message = msg
+
     Base.metadata.create_all(engine)
 
     ModelHistory = MyModel.__history_mapper__.class_
@@ -145,17 +154,26 @@ def test_version_message(db_versioned_session, engine, base):
 
     model.data = 'changed data'
     msg = 'test message'
-    model.version_message = msg
+    model.set_version_message(msg)
     
     session.commit()
 
     assert model.version == 2
     
-    hist = session.query(ModelHistory).filter(ModelHistory.version_message == msg).one()
-    pytest.set_trace()
-    assert hist.version_message == msg
-    assert model.version_message == ''
+    model.data = 'second change'
+    msg2 = 'second test message'
+    model.set_version_message(msg2)
 
+    session.commit()
+
+    assert model.version == 3
+
+    hist1, hist2 = session.query(ModelHistory).all()
+
+    assert hist1.version_message == msg 
+    assert hist2.version_message == msg2
+    assert model.version_message == ''
+    
+    orm.clear_mappers()
     Base.metadata.drop_all(engine)
     Base.metadata.clear()
-

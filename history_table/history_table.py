@@ -23,7 +23,7 @@ from sqlalchemy.orm import mapper
 from sqlalchemy.orm import object_mapper
 from sqlalchemy.orm.exc import UnmappedColumnError
 from sqlalchemy.orm.relationships import RelationshipProperty
-import pdb
+
 def col_references_table(col, table):
     for fk in col.foreign_keys:
         if fk.references(table):
@@ -245,13 +245,7 @@ def create_version(obj, session, deleted=False):
 
         for hist_col in hm.local_table.c:
             
-            #skip versioning columns except for message column, since that's 
-            #the cue to read message from model's non-persisted attribute
             if _is_versioning_col(hist_col):
-                #if hist_col.key == 'version_message':
-                #    attr['version_message'] = obj.version_message
-                #    obj.version_message = ''
-                
                 continue
 
             obj_col = om.local_table.c[hist_col.key]
@@ -307,15 +301,17 @@ def create_version(obj, session, deleted=False):
     if not obj_changed and not deleted:
         return
     
+    if obj.include_version_message is True:
+        attr["version_message"] = getattr(obj, "version_message", '')
+        setattr(obj, "version_message", '')
+
     attr["version"] = obj.version
-    attr["version_message"] = obj.version_message
     hist = history_cls()
     for key, value in attr.items():
         setattr(hist, key, value)
     session.add(hist)
     
     obj.version += 1
-    obj.version_message = ''
 
 #event handler defined on its own to create object to refer to for removal
 #func was given in sqlalchemy example code
