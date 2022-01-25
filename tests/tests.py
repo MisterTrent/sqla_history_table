@@ -119,3 +119,43 @@ def test_relationship(db_versioned_session, engine, base):
     
     Base.metadata.drop_all(engine)
     Base.metadata.clear()
+
+def test_version_message(db_versioned_session, engine, base):
+    
+    session = db_versioned_session
+    Base = base
+
+    class MyModel(Base, ht.Versioned):
+        __tablename__ = 'mytable'
+        
+        include_version_message = True
+
+        id = Column(Integer, primary_key = True)
+        data = Column(String)
+    
+    Base.metadata.create_all(engine)
+
+    ModelHistory = MyModel.__history_mapper__.class_
+    
+    model = MyModel(data = 'initial data')
+    session.add(model)
+    session.commit()
+
+    assert model.version == 1
+
+    model.data = 'changed data'
+    msg = 'test message'
+    model.version_message = msg
+    
+    session.commit()
+
+    assert model.version == 2
+    
+    hist = session.query(ModelHistory).filter(ModelHistory.version_message == msg).one()
+    pytest.set_trace()
+    assert hist.version_message == msg
+    assert model.version_message == ''
+
+    Base.metadata.drop_all(engine)
+    Base.metadata.clear()
+

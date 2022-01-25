@@ -14,15 +14,16 @@ from sqlalchemy import event
 from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy import Integer
 from sqlalchemy import Table
+from sqlalchemy import String
 from sqlalchemy import util
+from sqlalchemy import orm
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import attributes
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm import object_mapper
 from sqlalchemy.orm.exc import UnmappedColumnError
 from sqlalchemy.orm.relationships import RelationshipProperty
-
-
+import pdb
 def col_references_table(col, table):
     for fk in col.foreign_keys:
         if fk.references(table):
@@ -130,7 +131,7 @@ def _history_mapper(local_mapper):
         if getattr(cls, "include_version_message", False):
             cols.append(
                 Column(
-                    "message",
+                    "version_message",
                     String,
                     default='',
                     info=version_meta,
@@ -194,8 +195,12 @@ class Versioned:
     """if True, also assign the version column to be tracked by the mapper"""
     
     #used by the default history mapper when creating the history class
-    include_version_message = False
     include_version_timestamp = True
+    include_version_message = False
+    
+    __table_args__ = {"sqlite_autoincrement": True}
+    """Use sqlite_autoincrement, to ensure unique integer values
+    are used for new rows even for rows that have been deleted."""
     
     @declared_attr
     def __mapper_cls__(cls):
@@ -205,10 +210,14 @@ class Versioned:
             return mp
 
         return map_
+    
+    def __init__(self):
+        '''init function solely to add instance-specific version message 
+        transient property used in history row creation (see reconstructor
+        below).
+        '''
 
-    __table_args__ = {"sqlite_autoincrement": True}
-    """Use sqlite_autoincrement, to ensure unique integer values
-    are used for new rows even for rows that have been deleted."""
+        self.version_message = ''
 
 
 def versioned_objects(iter_):
@@ -239,11 +248,11 @@ def create_version(obj, session, deleted=False):
             #skip versioning columns except for message column, since that's 
             #the cue to read message from model's non-persisted attribute
             if _is_versioning_col(hist_col):
-                if hist_col.key == 'version_message':
-                    attr['version_message'] = getattr(om.local_table, 
-                                                      "version_message", "")
-                else:
-                    continue
+                #if hist_col.key == 'version_message':
+                #    attr['version_message'] = obj.version_message
+                #    obj.version_message = ''
+                
+                continue
 
             obj_col = om.local_table.c[hist_col.key]
 
@@ -297,13 +306,16 @@ def create_version(obj, session, deleted=False):
 
     if not obj_changed and not deleted:
         return
-
+    
     attr["version"] = obj.version
+    attr["version_message"] = obj.version_message
     hist = history_cls()
     for key, value in attr.items():
         setattr(hist, key, value)
     session.add(hist)
+    
     obj.version += 1
+    obj.version_message = ''
 
 #event handler defined on its own to create object to refer to for removal
 #func was given in sqlalchemy example code
