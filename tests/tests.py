@@ -2,8 +2,8 @@ import pytest
 
 import history_table.history_table as ht
 from sqlalchemy import create_engine, event
-from sqlalchemy import Column, String, Integer
-from sqlalchemy.orm import Session
+from sqlalchemy import Column, String, Integer, ForeignKey
+from sqlalchemy.orm import Session, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
 @pytest.fixture(scope="session")
@@ -80,4 +80,42 @@ def test_simple_creation(db_versioned_session, engine, base):
     session.commit()
     
     assert model.version == 2
+    
+    Base.metadata.drop_all(engine)
+    Base.metadata.clear()
 
+def test_relationship(db_versioned_session, engine, base):
+    
+    session = db_versioned_session
+    Base = base
+
+    class OtherModel(Base):
+        __tablename__ = 'othertable'
+
+        id = Column(Integer, primary_key = True)
+        otherdata = Column(String)
+
+    class MyModel(Base, ht.Versioned):
+        __tablename__ = 'mytable'
+
+        id = Column(Integer, primary_key = True)
+        data = Column(String)
+        other_id = Column(Integer, ForeignKey(OtherModel.id))
+        other = relationship("OtherModel", backref='models')
+
+    Base.metadata.create_all(engine)
+    
+    model = MyModel(data = 'initial data')
+    session.add(model)
+    session.commit()
+    
+    assert model.version == 1
+
+    othermodel = OtherModel(otherdata = "om1")
+    model.other = othermodel
+    session.commit()
+    
+    assert model.version == 2
+    
+    Base.metadata.drop_all(engine)
+    Base.metadata.clear()
