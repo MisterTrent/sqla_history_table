@@ -7,6 +7,12 @@ from sqlalchemy.orm import Session, relationship
 from sqlalchemy import orm
 from sqlalchemy.ext.declarative import declarative_base
 
+from sqlalchemy import engine_from_config
+from alembic import autogenerate
+from alembic.config import Config
+from alembic.runtime.environment import EnvironmentContext
+from alembic.script import ScriptDirectory
+
 @pytest.fixture(scope="session")
 def base():
     return declarative_base()
@@ -177,3 +183,68 @@ def test_version_message(db_versioned_session, engine, base):
     orm.clear_mappers()
     Base.metadata.drop_all(engine)
     Base.metadata.clear()
+
+def test_migration(engine, base):
+    ''' Test that alembic can successfully autogenerate a migration script
+    for an sqlalchemy Versioned model and associated <modelname>History 
+    class. Note: as alembic itself says, automigrations are not comprehensive,
+    and manual modifications to the migration script will be required. This
+    test is in keeping with that, designed simply to test the initial creation
+    of a script from the Versioned model and associated history. In other 
+    words, it's simply a test that any customizations to the model-mapper 
+    structure can be interpreted by the migration process without error.
+
+    Programmatic alembic use based on answers here: 
+    stackoverflow.com/questions/24622170/
+    as well as flask-alembic's revision creation process.
+
+    '''
+
+    Base = base
+    
+    class MyModel(Base, ht.Versioned):
+        __tablename__ = 'mytable'
+        
+        include_version_message = True
+
+        id = Column(Integer, primary_key = True)
+        data = Column(String)
+
+    ModelHistory = MyModel.__history_mapper__.class_
+
+    target_metadata = Base.metadata
+    cfg = Config()
+    cfg.set_main_option("sqlalchemy.url", "sqlite://")
+    
+    #this is where script will check for existing revisions
+    script_dir = ScriptDirectory('.')
+    
+    env_ctx = EnvironmentContext(cfg, script_dir)
+    rev_ctx = autogenerate.RevisionContext(
+                cfg, 
+                script_dir, 
+                {"message" : "",
+                "sql" : False,
+                "head" : ["head"],
+                "branch_label" : [],
+                "splice" : None,
+                "depends_on" : None,
+                "version_path" : None,
+                "rev_id" : "testmigration"}
+    )
+
+    def fn(rev, ctx):
+        rev_ctx.run_autogenerate(rev, ctx) 
+        return []
+
+    with engine.connect() as connection:
+        env_ctx.configure(
+            connection = connection,
+            target_metadata = target_metadata,
+            fn = fn
+        )
+
+        with env_ctx.begin_transaction():
+            env_ctx.run_migrations()
+
+    scripts = list(rev_ctx.generate_scripts())
