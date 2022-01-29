@@ -13,6 +13,8 @@ from alembic.config import Config
 from alembic.runtime.environment import EnvironmentContext
 from alembic.script import ScriptDirectory
 
+import os
+
 @pytest.fixture(scope="session")
 def base():
     return declarative_base()
@@ -87,7 +89,6 @@ def test_simple_creation(db_versioned_session, engine, base):
     session.commit()
     
     assert model.version == 2
-    
     
     orm.clear_mappers()
     Base.metadata.drop_all(engine)
@@ -216,7 +217,7 @@ def test_migration(engine, base):
     cfg = Config()
     cfg.set_main_option("sqlalchemy.url", "sqlite://")
     
-    #this is where script will check for existing revisions
+    #check for existing revisions here
     script_dir = ScriptDirectory('.')
     
     env_ctx = EnvironmentContext(cfg, script_dir)
@@ -237,6 +238,13 @@ def test_migration(engine, base):
         rev_ctx.run_autogenerate(rev, ctx) 
         return []
 
+    if not os.path.isdir('versions'):
+        os.mkdir('versions')
+   
+    #not testing migration versions; just creation from nothing
+    if os.exists('versions/testmigration_.py'):
+        os.remove('versions/testmigration_.py')
+    
     with engine.connect() as connection:
         env_ctx.configure(
             connection = connection,
@@ -247,4 +255,8 @@ def test_migration(engine, base):
         with env_ctx.begin_transaction():
             env_ctx.run_migrations()
 
-    scripts = list(rev_ctx.generate_scripts())
+    rev_ctx.generate_scripts()
+    
+    assert os.exists('versions/testmigration_.py')
+
+    #TODO add auto check for correct content of file rather than manual review
