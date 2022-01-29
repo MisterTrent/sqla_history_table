@@ -242,7 +242,7 @@ def test_migration(engine, base):
         os.mkdir('versions')
    
     #not testing migration versions; just creation from nothing
-    if os.exists('versions/testmigration_.py'):
+    if os.path.exists('versions/testmigration_.py'):
         os.remove('versions/testmigration_.py')
     
     with engine.connect() as connection:
@@ -255,8 +255,8 @@ def test_migration(engine, base):
         with env_ctx.begin_transaction():
             env_ctx.run_migrations()
 
-    rev_ctx.generate_scripts()
+    scripts = list(rev_ctx.generate_scripts())
     
-    assert os.exists('versions/testmigration_.py')
+    assert os.path.exists('versions/testmigration_.py')
 
     #TODO add auto check for correct content of file rather than manual review
