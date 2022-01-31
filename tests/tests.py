@@ -211,7 +211,7 @@ def test_migration(engine, base):
         id = Column(Integer, primary_key = True)
         data = Column(String)
 
-    ModelHistory = MyModel.__history_mapper__.class_
+    #MyModelHistory incl. w/ metadata; will migrate w/o need to include it here 
 
     target_metadata = Base.metadata
     cfg = Config()
