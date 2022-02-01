@@ -69,7 +69,7 @@ def _history_mapper(local_mapper):
         for column in local_mapper.local_table.c:
             if _is_versioning_col(column):
                 continue
-
+            
             col = _col_copy(column)
 
             if super_mapper and col_references_table(
@@ -113,7 +113,7 @@ def _history_mapper(local_mapper):
                 info=version_meta,
             )
         )
-
+        
         # "changed" column stores the UTC timestamp of when the
         # history row was created.
         # This column is optional and can be omitted.
@@ -180,7 +180,11 @@ def _history_mapper(local_mapper):
 
     if not super_history_mapper:
         local_mapper.local_table.append_column(
-            Column("version", Integer, default=1, nullable=False),
+            Column("version", 
+                    Integer, 
+                    default=1, 
+                    nullable=False, 
+                    info = {"version_meta" : True}),
             replace_existing=True,
         )
         local_mapper.add_property(
