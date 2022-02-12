@@ -1,0 +1,56 @@
+{% extends 'admin/master.html' %}
+{% import 'admin/lib.html' as lib with context %}
+{% from 'admin/lib.html' import extra with context %} {# backward compatible #}
+
+{% block head %}
+  {{ super() }}
+  {{ lib.form_css() }}
+{% endblock %}
+
+{% block body %}
+  {% block navlinks %}
+  <ul class="nav nav-tabs">
+    <li>
+        <a href="{{ return_url }}">{{ _gettext('List') }}</a>
+    </li>
+    {%- if admin_view.can_create -%}
+    <li>
+        <a href="{{ get_url('.create_view', url=return_url) }}">{{ _gettext('Create') }}</a>
+    </li>
+    {%- endif -%}
+    <li>
+        <a href="javascript:void(0)">{{ _gettext('Edit') }}</a>
+    </li>
+    {%- if admin_view.can_view_details -%}
+    <li>
+        <a href="{{ get_url('.details_view', id=request.args.get('id'), url=return_url) }}">{{ _gettext('Details') }}</a>
+    </li>
+    {%- endif -%}
+    {%- if admin_view.can_deleteplus -%}
+    <li class='active'>
+        <a href="javascript:void(0)">{{ _gettext('Delete') }}</a>
+    </li>
+    {%- endif -%}
+  </ul>
+  {% endblock %}
+
+  {% block delete_form %}
+    {% call lib.form_tag(action=action) %}
+      {{ lib.render_form_fields(form, form_opts=form_opts) }}
+      {{ render_form_buttons(return_url) }}
+    {% endcall %}
+  {% endblock %}
+{% endblock %}
+
+{# substitute macro to eliminate extra buttons & add meaningful label #}
+{% macro render_form_buttons(cancel_url, is_modal=False) %}
+  <hr>
+  <div class="control-group">
+    <div class="controls">
+      <input type="submit" class="btn btn-primary" value="{{ _gettext('Delete') }}" onclick="return confirm('Are you sure you want to delete this record?');"/>
+      {% if cancel_url %}
+        <a href="{{ cancel_url }}" class="btn btn-danger" {% if is_modal %}data-dismiss="modal"{% endif %}>{{ _gettext('Cancel') }}</a>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}
